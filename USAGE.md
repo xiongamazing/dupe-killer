@@ -4,33 +4,67 @@
 
 - [快速开始](#快速开始)
 - [命令参数](#命令参数)
+- [完整操作流程](#完整操作流程)
+- [输出格式详解](#输出格式详解)
+- [删除脚本详解](#删除脚本详解)
 - [使用场景](#使用场景)
-- [删除流程](#删除流程)
-- [输出格式](#输出格式)
 - [常见问题](#常见问题)
+- [开发相关](#开发相关)
 
 ---
 
 ## 快速开始
 
-### 1. 编译安装
+### 1. 获取代码
 
 ```bash
 git clone https://github.com/xiongamazing/dupe-killer.git
 cd dupe-killer
+```
+
+### 2. 编译
+
+```bash
 cargo build --release
 ```
 
-编译完成后，可执行文件在 `target/release/dupe-killer`（Windows: `dupe-killer.exe`）。
+编译成功后可执行文件的位置：
 
-### 2. 最简单的用法
+| 平台 | 路径 |
+|------|------|
+| Windows | `target\release\dupe-killer.exe` |
+| Linux / macOS | `target/release/dupe-killer` |
+
+### 3. 两种运行方式
+
+**方式一：用 `cargo run` 直接运行（开发调试时方便）**
 
 ```bash
-# 扫描当前目录
-dupe-killer .
+cargo run -- <要扫描的目录>
+```
 
-# 扫描指定目录
-dupe-killer ~/Documents
+注意 `--` 是分隔符，后面的参数才会传给 dupe-killer，而不是 cargo。
+
+**方式二：编译后用可执行文件运行（更快，无需每次编译）**
+
+```bash
+# Windows
+.\target\release\dupe-killer.exe <要扫描的目录>
+
+# Linux / macOS
+./target/release/dupe-killer <要扫描的目录>
+```
+
+本文档后续示例均使用 `cargo run --`，你也可以替换为可执行文件路径。
+
+### 4. 试运行
+
+```bash
+# 扫描当前项目目录
+cargo run -- .
+
+# 查看帮助
+cargo run -- --help
 ```
 
 ---
@@ -45,238 +79,439 @@ dupe-killer <PATH> [选项]
 
 | 参数 | 说明 |
 |------|------|
-| `<PATH>` | 要扫描的目录路径 |
+| `<PATH>` | 要递归扫描的目录路径。如果路径包含空格或中文，需要用引号括起来。 |
 
 ### 可选参数
 
-| 参数 | 说明 | 示例 |
+| 参数 | 类型 | 说明 |
 |------|------|------|
-| `--min-size <SIZE>` | 只处理大于指定大小的文件 | `--min-size 1MB` |
-| `--json` | 以 JSON 格式输出 | `--json` |
-| `--dry-run` | 预览模式，只显示不删除 | `--dry-run` |
-| `--delete-script <FILE>` | 生成删除脚本 | `--delete-script cleanup.ps1` |
-| `--help` | 查看帮助 | `--help` |
-| `--version` | 查看版本 | `--version` |
+| `--min-size <SIZE>` | 字符串 | 只处理大于该大小的文件 |
+| `--json` | 开关 | 以 JSON 格式输出结果 |
+| `--dry-run` | 开关 | 预览模式，只显示结果不生成脚本 |
+| `--delete-script <FILE>` | 路径 | 生成删除脚本到指定路径 |
+| `--help` | 开关 | 显示帮助信息并退出 |
+| `--version` | 开关 | 显示版本号并退出 |
 
-### min-size 支持的格式
+### `--min-size` 大小格式详解
 
-| 格式 | 含义 | 字节数 |
-|------|------|--------|
-| `100B` | 100 字节 | 100 |
+`--min-size` 用于过滤掉小文件，避免对大量小文件做哈希计算。支持以下格式：
+
+| 输入 | 含义 | 实际字节数 |
+|------|------|-----------|
+| `100` 或 `100B` | 100 字节 | 100 |
+| `1KB` | 1 千字节（1000 字节） | 1,000 |
+| `1KiB` | 1 千字节（1024 字节） | 1,024 |
 | `500KB` | 500 千字节 | 500,000 |
-| `1MB` | 1 兆字节 | 1,000,000 |
+| `1MB` | 1 兆字节（1,000,000 字节） | 1,000,000 |
+| `1MiB` | 1 兆字节（1,048,576 字节） | 1,048,576 |
 | `2GB` | 2 吉字节 | 2,000,000,000 |
-| `1KiB` | 1 千字节 (1024) | 1,024 |
-| `1MiB` | 1 兆字节 (1024²) | 1,048,576 |
 
-大小写不敏感，`1mb` 和 `1MB` 等效。
+大小写不敏感：`1mb`、`1MB`、`1Mb` 均等效。
 
----
+**使用建议**：
 
-## 使用场景
-
-### 场景一：清理重复的照片和视频
-
-照片和视频通常体积较大，重复文件会占用大量空间。
-
-```bash
-# 先预览，看看有多少重复
-dupe-killer ~/Pictures --min-size 100KB
-
-# 确认无误后，生成删除脚本
-dupe-killer ~/Pictures --min-size 100KB --delete-script ~/cleanup_photos.ps1
-
-# 审核脚本内容，确认后执行（Windows PowerShell）
-powershell -ExecutionPolicy Bypass -File ~/cleanup_photos.ps1
-```
-
-### 场景二：整理备份目录
-
-备份过程中经常产生重复副本。
-
-```bash
-# 扫描备份盘
-dupe-killer /mnt/backup --min-size 1MB
-
-# 导出 JSON，用其他工具做进一步分析
-dupe-killer /mnt/backup --min-size 1MB --json > duplicates.json
-```
-
-### 场景三：清理下载目录
-
-```bash
-# 扫描下载目录
-dupe-killer ~/Downloads
-
-# 预览模式，不实际删除
-dupe-killer ~/Downloads --dry-run
-```
-
-### 场景四：扫描大型项目目录
-
-```bash
-# 指定最小文件大小避免扫描过多小文件
-dupe-killer /path/to/project --min-size 10KB
-
-# 输出 JSON 供脚本处理
-dupe-killer /path/to/project --min-size 10KB --json
-```
+| 场景 | 推荐 min-size | 原因 |
+|------|---------------|------|
+| 清理照片/视频 | `--min-size 100KB` | 照片通常 100KB+，过滤缩略图和图标 |
+| 清理文档 | `--min-size 1KB` | 文档一般几 KB 起步 |
+| 整理备份盘 | `--min-size 1MB` | 关注大文件，小文件重复影响不大 |
+| 全面扫描 | 不加此参数 | 所有文件都参与查重 |
 
 ---
 
-## 删除流程
+## 完整操作流程
 
-dupe-killer **不会直接删除文件**。推荐的安全删除流程：
+下面以一个真实目录 `D:\系统图片\Screenshots` 为例，演示从扫描到删除的完整流程。
 
-```
-第 1 步：预览
-  dupe-killer /path --dry-run
-  查看有哪些重复文件，确认是否可以删除
+### 第 1 步：预览扫描
 
-第 2 步：生成脚本
-  dupe-killer /path --delete-script cleanup.ps1
-  生成删除脚本，每个重复组保留第一个文件
+先看看目录里有哪些重复文件，不做任何删除操作：
 
-第 3 步：审核
-  用编辑器打开 cleanup.ps1
-  检查每个要删除的文件路径是否正确
-
-第 4 步：执行
-  # Windows PowerShell
-  powershell -ExecutionPolicy Bypass -File cleanup.ps1
-
-  # Linux / macOS
-  bash cleanup.sh
+```bash
+cargo run -- "D:\系统图片\Screenshots" --dry-run
 ```
 
-### 生成的脚本内容示例
+输出示例：
+
+```
+Scanning D:\系统图片\Screenshots (min size: 0 bytes)...
+Found 41 files to analyze.
+Analyzing for duplicates...
+
+=== Duplicate Files Report ===
+
+Group 1 180 KB × 2 files duplicates — waste: 180 KB
+  keep : D:\系统图片\Screenshots\屏幕截图 2026-06-26 125049.png
+  del  : D:\系统图片\Screenshots\屏幕截图 2026-06-26 125049 - 副本.png
+
+─────────────────────────────────────────
+Scan Summary:
+  Total files scanned : 41
+  Total data scanned  : 6.8 MB
+  Duplicate groups    : 1
+  Wasted space        : 180 KB
+  (2.6% of total data is duplicate)
+
+ℹ Dry run mode — no files were deleted.
+```
+
+从这个输出你可以看到：
+- 扫描了 41 个文件，总计 6.8 MB
+- 发现 1 组重复（原图和副本）
+- 可释放 180 KB 空间
+- `keep` 是建议保留的，`del` 是建议删除的
+
+### 第 2 步：生成删除脚本
+
+确认要删除重复文件后，生成删除脚本：
+
+```bash
+cargo run -- "D:\系统图片\Screenshots" --delete-script "D:\系统图片\Screenshots\cleanup.ps1"
+```
+
+输出：
+
+```
+✓ Deletion script written to D:\系统图片\Screenshots\cleanup.ps1
+  ⚠ Review the script carefully before executing.
+  Run: powershell -ExecutionPolicy Bypass -File D:\系统图片\Screenshots\cleanup.ps1
+
+=== Duplicate Files Report ===
+...
+```
+
+### 第 3 步：审核脚本
+
+用记事本或 VS Code 打开生成的脚本文件，检查内容是否正确。脚本内容类似：
 
 ```powershell
 # dupe-killer deletion script (PowerShell)
 # Review carefully before executing!
-# Run: powershell -ExecutionPolicy Bypass -File cleanup.ps1
 
 $ErrorActionPreference = "Stop"
 
 # Generated by dupe-killer v0.1.0
-# 1 duplicate group(s) | 226 B reclaimable
+# 1 duplicate group(s) | 180 KB reclaimable
 #
 # Each section shows: hash, size, files
 # The FIRST file is KEPT; all others are DELETED
 
-# ── Group 1: 113 B × 3 files (hash: 39d9421d...) ──
-# KEEP: C:/photos/photo.jpg
-Remove-Item -LiteralPath "C:/backup/photo.jpg" -Force
-Remove-Item -LiteralPath "C:/downloads/photo.jpg" -Force
+# ── Group 1: 180 KB × 2 files ──
+# KEEP: D:\系统图片\Screenshots\屏幕截图 2026-06-26 125049.png
+Remove-Item -LiteralPath "D:\系统图片\Screenshots\屏幕截图 2026-06-26 125049 - 副本.png" -Force
 
-Write-Host "Done. Deleted 2 files."
+Write-Host "Done. Deleted 1 files."
+Remove-Item -LiteralPath $PSCommandPath -Force
 ```
+
+关键信息：
+- `# KEEP:` 标记的是保留的文件，不会被删除
+- `Remove-Item` 的是要删除的文件
+- 最后一行 `Remove-Item $PSCommandPath` 是脚本执行完毕后自动删除自己
+
+### 第 4 步：执行删除
+
+确认脚本内容无误后，在终端执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "D:\系统图片\Screenshots\cleanup.ps1"
+```
+
+执行后：
+- 重复文件被删除
+- 脚本文件自动删除自身
+- 保留的原文件不受影响
 
 ---
 
-## 输出格式
+## 输出格式详解
 
-### 默认：彩色终端表格
+### 默认格式：彩色终端表格
 
 ```
 === Duplicate Files Report ===
 
-Group 1 42 B × 2 files duplicates — waste: 42 B
-  keep : /tmp/demo/a.txt
-  del  : /tmp/demo/b.txt
+Group 1 180 KB × 3 files duplicates — waste: 360 KB
+  keep : D:\photos\IMG_001.jpg
+  del  : D:\backup\IMG_001.jpg
+  del  : D:\downloads\IMG_001.jpg
+
+Group 2 2.5 MB × 2 files duplicates — waste: 2.5 MB
+  keep : D:\videos\clip.mp4
+  del  : D:\videos\clip_copy.mp4
 
 ─────────────────────────────────────────
 Scan Summary:
-  Total files scanned : 4
-  Total data scanned  : 133 B
-  Duplicate groups    : 1
-  Wasted space        : 42 B
-  (3.2% of total data is duplicate)
+  Total files scanned : 1,234
+  Total data scanned  : 5.2 GB
+  Duplicate groups    : 2
+  Wasted space        : 2.9 MB
+  (0.1% of total data is duplicate)
 ```
 
-输出说明：
+各部分含义：
 
-| 字段 | 含义 |
-|------|------|
-| `Group N` | 重复组编号 |
-| `42 B × 2 files` | 每组文件大小 × 重复文件数量 |
-| `waste: 42 B` | 该组浪费的空间（删除 N-1 个文件后释放） |
-| `keep :` | 建议保留的文件（每组第一个） |
-| `del  :` | 建议删除的文件 |
+| 区域 | 字段 | 含义 |
+|------|------|------|
+| 报告标题 | `=== Duplicate Files Report ===` | 重复文件报告开始 |
+| 重复组 | `Group N` | 第 N 组重复文件 |
+| 重复组 | `180 KB × 3 files` | 每个文件 180 KB，共 3 个 |
+| 重复组 | `waste: 360 KB` | 这组浪费的空间 = 文件大小 × (文件数 - 1) |
+| 重复组 | `keep :` (绿色) | 建议保留的文件（每组第一个） |
+| 重复组 | `del  :` (红色) | 建议删除的文件 |
+| 摘要 | `Total files scanned` | 总共扫描的文件数量 |
+| 摘要 | `Total data scanned` | 所有被扫描文件的总大小 |
+| 摘要 | `Duplicate groups` | 总共发现多少组重复 |
+| 摘要 | `Wasted space` | 如果每组只保留一份，可以释放的总空间 |
+| 摘要 | 百分比 | 重复数据占总数据的比例 |
 
 ### JSON 格式 (`--json`)
+
+```bash
+cargo run -- /path/to/dir --json
+```
+
+输出：
 
 ```json
 {
   "scan_stats": {
-    "total_files": 4,
-    "total_size": 133,
+    "total_files": 41,
+    "total_size": 7123456,
     "duplicate_groups": 1,
-    "wasted_bytes": 42
+    "wasted_bytes": 184320
   },
   "duplicate_groups": [
     {
-      "size": 42,
-      "hash": "5989f8604aacd0ba2b1cfc6f10bedd0a9bae2b94a77f97122d0606b1dc3d0729",
+      "size": 184320,
+      "hash": "39d9421defc6c44d59f79f6f26f503eb358cd53529d3a8b4639c9995fafaf8e2",
       "files": [
-        "/tmp/demo/a.txt",
-        "/tmp/demo/b.txt"
+        "D:\\系统图片\\Screenshots\\屏幕截图 2026-06-26 125049.png",
+        "D:\\系统图片\\Screenshots\\屏幕截图 2026-06-26 125049 - 副本.png"
       ]
     }
   ]
 }
 ```
 
+JSON 字段说明：
+
+| 字段 | 类型 | 含义 |
+|------|------|------|
+| `scan_stats.total_files` | 整数 | 扫描的文件总数 |
+| `scan_stats.total_size` | 整数 | 所有文件总字节数 |
+| `scan_stats.duplicate_groups` | 整数 | 重复组数量 |
+| `scan_stats.wasted_bytes` | 整数 | 可释放的字节数 |
+| `duplicate_groups[].size` | 整数 | 该组每个文件的字节数 |
+| `duplicate_groups[].hash` | 字符串 | 该组文件的 Blake3 哈希值（64 位十六进制） |
+| `duplicate_groups[].files` | 数组 | 该组所有重复文件的完整路径 |
+
+JSON 输出适合被其他脚本或程序解析处理，例如：
+
+```bash
+# 导出重复文件列表，用 jq 提取路径
+cargo run -- /path --json | jq '.duplicate_groups[].files[]'
+
+# 统计可节省的总空间
+cargo run -- /path --json | jq '.scan_stats.wasted_bytes'
+```
+
+---
+
+## 删除脚本详解
+
+### 脚本生成规则
+
+| 规则 | 说明 |
+|------|------|
+| 保留策略 | 每组**第一个文件**保留，其余删除 |
+| 命名规则 | 建议使用 `.ps1` 后缀（Windows）或 `.sh` 后缀（Linux/macOS） |
+| 编码 | PowerShell 脚本使用 UTF-8 BOM 编码，确保中文路径正确显示 |
+| 自动清理 | 脚本执行完毕后会自动删除自身 |
+| 错误处理 | 遇到错误立即停止（`$ErrorActionPreference = "Stop"` / `set -e`） |
+
+### PowerShell 脚本 (`.ps1`)
+
+```powershell
+# dupe-killer deletion script (PowerShell)
+$ErrorActionPreference = "Stop"
+
+# ── Group 1: 180 KB × 2 files (hash: 39d9421d...) ──
+# KEEP: D:\photos\original.jpg
+Remove-Item -LiteralPath "D:\backup\copy.jpg" -Force
+
+Write-Host "Done. Deleted 1 files."
+Remove-Item -LiteralPath $PSCommandPath -Force    # 删除脚本自身
+```
+
+执行方式：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "path\to\cleanup.ps1"
+```
+
+### Bash 脚本 (`.sh`)
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ── Group 1: 180 KB × 2 files (hash: 39d9421d...) ──
+# KEEP: /home/user/photos/original.jpg
+rm -f "/home/user/backup/copy.jpg"
+
+echo "Done. Deleted 1 files."
+rm -f "$0"    # 删除脚本自身
+```
+
+执行方式：
+
+```bash
+bash path/to/cleanup.sh
+```
+
+---
+
+## 使用场景
+
+### 场景一：清理截图目录
+
+```bash
+# 扫描截图目录，预览重复
+cargo run -- "D:\系统图片\Screenshots" --dry-run
+
+# 生成删除脚本
+cargo run -- "D:\系统图片\Screenshots" --delete-script "D:\系统图片\Screenshots\cleanup.ps1"
+
+# 执行
+powershell -ExecutionPolicy Bypass -File "D:\系统图片\Screenshots\cleanup.ps1"
+```
+
+### 场景二：清理重复照片
+
+```bash
+# 只看大于 100KB 的文件（排除缩略图）
+cargo run -- "D:\照片" --min-size 100KB
+
+# 生成删除脚本并执行
+cargo run -- "D:\照片" --min-size 100KB --delete-script cleanup.ps1
+powershell -ExecutionPolicy Bypass -File cleanup.ps1
+```
+
+### 场景三：整理备份盘
+
+```bash
+# 只关注大文件（≥ 1MB）
+cargo run -- "E:\备份" --min-size 1MB
+
+# 导出 JSON，方便进一步分析
+cargo run -- "E:\备份" --min-size 1MB --json > duplicates.json
+```
+
+### 场景四：代码项目查重
+
+```bash
+# 扫描项目目录
+cargo run -- ./my-project
+
+# 只看 JSON 输出，配合 jq 过滤
+cargo run -- ./my-project --json | jq '.duplicate_groups[] | select(.size > 10000)'
+```
+
+### 场景五：只查看不删除
+
+```bash
+# 加上 --dry-run 即安全预览
+cargo run -- /any/directory --dry-run
+```
+
 ---
 
 ## 常见问题
 
-### Q: 工具会直接删除我的文件吗？
+### Q1: 重复文件判断准确吗？
 
-**不会。** dupe-killer 只生成删除脚本，你需要手动审核并执行该脚本，文件才会被删除。
+准确。工具使用**四层渐进式验证**，只有全部通过才认为是重复：
 
-### Q: 如何确认两个文件真的是重复的？
+```
+第 1 层：文件大小          →  大小不同的文件直接排除
+第 2 层：Blake3 快速哈希    →  只读文件头 8KB，快速排除
+第 3 层：Blake3 完整哈希    →  读整个文件，进一步确认
+第 4 层：逐字节比对         →  消除哈希碰撞的理论可能
+```
 
-工具使用四层验证：
-1. 文件大小相同
-2. 前 8KB 内容的 Blake3 哈希相同
-3. 完整文件的 Blake3 哈希相同
-4. 逐字节比对一致
+Blake3 是密码学级别的哈希算法，碰撞概率 < 10⁻⁷⁷，第四层逐字节比对彻底消除了任何误判可能。
 
-只有全部通过才会被标记为重复。Blake3 是密码级哈希算法，哈希碰撞概率极低（< 2⁻²⁵⁶），第四层逐字节比对彻底消除了这个可能。
+### Q2: 工具会直接删除我的文件吗？
 
-### Q: 为什么有些文件被跳过了？
+**绝对不会。** dupe-killer 只做两件事：
+1. 扫描并识别重复文件
+2. 生成删除脚本（如果你指定了 `--delete-script`）
 
-可能有以下原因：
-- 文件小于 `--min-size` 设置的最小值
-- 文件无法读取（权限不足）
-- 是目录或符号链接（自动跳过）
+删除操作需要你手动审核脚本、手动执行。执行前请务必检查脚本内容。
 
-被跳过的文件会在 stderr 输出警告信息。
+### Q3: 脚本执行完会不会误删原文件？
 
-### Q: 扫描很慢怎么办？
+不会。每个重复组**只保留第一个文件**（标记为 `KEEP`），其余标记为 `DEL` 的才会被删除。你始终保留一份原始文件。
 
-- 使用 `--min-size` 过滤掉小文件，大幅减少需要哈希的文件数量
-- 工具已使用 `rayon` 并行计算哈希，会自动利用所有 CPU 核心
-- 第一次扫描时，文件系统缓存较冷，再次扫描相同目录会更快
+### Q4: 为什么有些文件被跳过了？
 
-### Q: 支持哪些平台？
+可能的原因：
 
-Windows、Linux、macOS 均可使用。删除脚本会自动适配：
-- Windows → 生成 PowerShell 脚本 (`.ps1`)
-- Linux/macOS → 生成 Bash 脚本 (`.sh`)
+| 原因 | 日志提示 |
+|------|----------|
+| 文件小于 `--min-size` 的值 | 无日志，直接过滤 |
+| 文件无法读取（权限不足） | `Warning: skipping unreadable entry: ...` |
+| 无法获取文件元数据 | `Warning: cannot read metadata for ...` |
+| 是目录或符号链接 | 无日志，自动跳过 |
+
+### Q5: 扫描大目录很慢怎么办？
+
+- **用 `--min-size` 过滤**：跳过大量小文件，效果最明显
+- **利用多核并行**：工具已使用 `rayon` 并行计算哈希，自动利用所有 CPU 核心
+- **冷热缓存**：同一目录第二次扫描会更快（文件系统缓存）
+
+### Q6: 支持中文路径吗？
+
+完全支持。工具生成的 PowerShell 脚本使用 UTF-8 BOM 编码，确保中文路径被正确识别。
+
+### Q7: 支持哪些平台？
+
+| 平台 | 支持 | 脚本类型 |
+|------|------|----------|
+| Windows 10/11 | ✅ | `.ps1` (PowerShell) |
+| Linux | ✅ | `.sh` (Bash) |
+| macOS | ✅ | `.sh` (Bash) |
 
 ---
 
-## 运行测试
+## 开发相关
+
+### 运行测试
 
 ```bash
-# 运行全部测试
-cargo test
+cargo test              # 运行全部测试
+cargo test -- --nocapture  # 显示测试输出
+```
 
-# 代码格式检查
-cargo fmt --check
+### 代码质量检查
 
-# 代码质量检查
-cargo clippy -- -D warnings
+```bash
+cargo fmt --check             # 格式检查
+cargo fmt                     # 自动修复格式
+cargo clippy -- -D warnings   # 代码质量检查（零警告标准）
+```
+
+### 项目结构
+
+```
+src/
+├── main.rs        # 程序入口，调度各模块
+├── lib.rs         # 模块声明
+├── types.rs       # 数据结构：FileEntry、DuplicateGroup、ScanStats 等
+├── cli.rs         # 命令行参数解析（clap）
+├── scanner.rs     # 递归目录扫描（walkdir）
+├── hasher.rs      # Blake3 哈希计算 + rayon 并行
+├── duplicates.rs  # 四层渐进式查重核心算法
+└── output.rs      # 终端表格 / JSON / 删除脚本输出
 ```
