@@ -1,15 +1,6 @@
-//! # dupe-killer — fast duplicate file finder
+//! # dupe-killer — 命令行重复文件查找器
 //!
-//! Uses a four-layer progressive hashing algorithm (size → quick hash → full hash → byte verify).
-//!
-//! ## Quick start
-//!
-//! ```bash
-//! cargo run -- /path/to/scan
-//! cargo run -- /path/to/scan --min-size 1MB --json
-//! cargo run -- /path/to/scan --dry-run
-//! cargo run -- /path/to/scan --delete-script cleanup.sh
-//! ```
+//! 基于四层渐进式哈希算法（大小 → 快速哈希 → 完整哈希 → 逐字节比对）。
 
 pub mod cli;
 pub mod duplicates;

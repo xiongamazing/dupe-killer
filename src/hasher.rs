@@ -6,10 +6,7 @@ use std::path::{Path, PathBuf};
 
 const QUICK_HASH_BYTES: usize = 8192;
 
-/// Compute a Blake3 hash of the first 8 KB of a file.
-///
-/// Used in the second layer of deduplication to quickly filter out files
-/// that differ near the beginning.
+/// 计算文件头部 8KB 的 Blake3 哈希
 pub fn compute_quick_hash(path: &Path, size: u64) -> anyhow::Result<PartialHash> {
     let file = fs::File::open(path)?;
     let mut reader = BufReader::with_capacity(QUICK_HASH_BYTES, file);
@@ -26,10 +23,7 @@ pub fn compute_quick_hash(path: &Path, size: u64) -> anyhow::Result<PartialHash>
     })
 }
 
-/// Compute the full Blake3 hash of an entire file.
-///
-/// Used in the third layer of deduplication; only called for files that
-/// have already passed the size and quick-hash filters.
+/// 计算整个文件的 Blake3 哈希
 pub fn compute_full_hash(path: &Path, size: u64) -> anyhow::Result<FullHash> {
     let file = fs::File::open(path)?;
     let mut reader = BufReader::new(file);
@@ -53,9 +47,7 @@ pub fn compute_full_hash(path: &Path, size: u64) -> anyhow::Result<FullHash> {
     })
 }
 
-/// Verify two files are byte-for-byte identical.
-///
-/// Fourth layer of deduplication — eliminates hash-collision false positives.
+/// 逐字节比对两个文件是否完全一致（第四层验证）
 pub fn verify_identical(a: &Path, b: &Path) -> anyhow::Result<bool> {
     let file_a = fs::File::open(a)?;
     let file_b = fs::File::open(b)?;
@@ -83,41 +75,35 @@ pub fn verify_identical(a: &Path, b: &Path) -> anyhow::Result<bool> {
     }
 }
 
-/// Compute quick hashes for a batch of files in parallel via rayon.
-///
-/// Files that fail to hash are logged and skipped.
+/// 并行计算一批文件的快速哈希
 pub fn compute_quick_hashes_parallel(entries: &[PathBuf], size: u64) -> Vec<PartialHash> {
     entries
         .par_iter()
         .filter_map(|path| match compute_quick_hash(path, size) {
             Ok(h) => Some(h),
             Err(e) => {
-                eprintln!("Warning: skipping {}: {e}", path.display());
+                eprintln!("警告: 跳过 {}: {e}", path.display());
                 None
             }
         })
         .collect()
 }
 
-/// Compute full hashes for a batch of files in parallel via rayon.
-///
-/// Files that fail to hash are logged and skipped.
+/// 并行计算一批文件的完整哈希
 pub fn compute_full_hashes_parallel(paths: &[PathBuf], size: u64) -> Vec<FullHash> {
     paths
         .par_iter()
         .filter_map(|path| match compute_full_hash(path, size) {
             Ok(h) => Some(h),
             Err(e) => {
-                eprintln!("Warning: skipping full hash for {}: {e}", path.display());
+                eprintln!("警告: 跳过完整哈希 {}: {e}", path.display());
                 None
             }
         })
         .collect()
 }
 
-/// Verify all files in a group are byte-for-byte identical.
-///
-/// Compares the first file against each subsequent file; returns `false` on first mismatch.
+/// 验证一组文件是否全部逐字节一致
 pub fn verify_group_identical(files: &[PathBuf]) -> anyhow::Result<bool> {
     if files.len() < 2 {
         return Ok(true);

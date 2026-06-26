@@ -3,18 +3,15 @@ use crate::types::{DuplicateGroup, FileEntry, ScanStats};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// Four-layer progressive duplicate detection.
-///
-/// 1. Group by file size → 2. Quick hash (first 8 KB) → 3. Full hash → 4. Byte-by-byte verify.
-///
-/// Hashing failures for individual files are logged and skipped.
+/// 四层渐进式重复检测算法：
+/// 1. 按文件大小分组 → 2. 快速哈希 → 3. 完整哈希 → 4. 逐字节比对
 pub fn find_duplicates(
     entries: Vec<FileEntry>,
 ) -> anyhow::Result<(Vec<DuplicateGroup>, ScanStats)> {
     let total_files = entries.len() as u64;
     let total_size: u64 = entries.iter().map(|e| e.size).sum();
 
-    // Layer 1: group by file size
+    // 第一层：按文件大小分组，大小唯一的直接排除
     let mut by_size: HashMap<u64, Vec<PathBuf>> = HashMap::new();
     for entry in &entries {
         by_size
@@ -25,7 +22,7 @@ pub fn find_duplicates(
 
     by_size.retain(|_, paths| paths.len() >= 2);
 
-    // Layer 2: quick hash (first 8 KB)
+    // 第二层：计算头部 8KB 的快速哈希
     let mut quick_hash_groups: Vec<(u64, Vec<PathBuf>)> = Vec::new();
 
     for (&size, paths) in &by_size {
@@ -43,7 +40,7 @@ pub fn find_duplicates(
         }
     }
 
-    // Layer 3: full hash
+    // 第三层：完整文件哈希
     let mut full_hash_groups: Vec<(u64, Vec<PathBuf>)> = Vec::new();
 
     for (size, paths) in &quick_hash_groups {
@@ -61,7 +58,7 @@ pub fn find_duplicates(
         }
     }
 
-    // Layer 4: byte-by-byte verification
+    // 第四层：逐字节比对，消除哈希碰撞的可能
     let mut duplicate_groups: Vec<DuplicateGroup> = Vec::new();
 
     for (size, paths) in &full_hash_groups {

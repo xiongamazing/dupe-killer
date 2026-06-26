@@ -1,40 +1,37 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-/// dupe-killer — find and manage duplicate files.
+/// 重复文件查找器
 #[derive(Parser, Debug)]
 #[command(
     name = "dupe-killer",
     version = env!("CARGO_PKG_VERSION"),
-    about = "Find and manage duplicate files",
-    long_about = "A fast duplicate file finder that uses a four-layer \
-                  progressive hashing algorithm to identify duplicate \
-                  files with minimal I/O. Supports colored terminal output, \
-                  JSON export, and deletion script generation."
+    about = "查找并管理重复文件",
+    long_about = "基于四层渐进式哈希算法的重复文件查找工具，支持彩色终端输出、JSON 导出和删除脚本生成。"
 )]
 pub struct Args {
-    /// Directory path to scan recursively
+    /// 要扫描的目录路径
     #[arg(value_name = "PATH")]
     pub path: PathBuf,
 
-    /// Minimum file size, e.g. "1MB", "500KB", "100B"
+    /// 最小文件大小，如 1MB、500KB、100B
     #[arg(long, value_name = "SIZE", value_parser = parse_min_size)]
     pub min_size: Option<u64>,
 
-    /// Output results as JSON
+    /// 以 JSON 格式输出
     #[arg(long)]
     pub json: bool,
 
-    /// Dry run: show results without deleting files
+    /// 预览模式，不实际删除
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Generate a deletion script (PowerShell on Windows, bash on Unix)
+    /// 生成删除脚本（Windows 下为 .ps1，Unix 下为 .sh）
     #[arg(long, value_name = "FILE")]
     pub delete_script: Option<PathBuf>,
 }
 
-/// Parse a size string like "1MB", "500KB", "100" into bytes.
+/// 把 "1MB"、"500KB" 这样的字符串解析成字节数
 ///
 /// ```
 /// # use dupe_killer::cli::parse_min_size;
@@ -44,6 +41,7 @@ pub struct Args {
 pub fn parse_min_size(input: &str) -> Result<u64, String> {
     let input = input.trim().to_uppercase();
 
+    // 把数字部分和单位部分拆开
     let (num_str, suffix) = {
         let idx = input
             .find(|c: char| !c.is_ascii_digit() && c != '.')
@@ -55,10 +53,10 @@ pub fn parse_min_size(input: &str) -> Result<u64, String> {
 
     let number: f64 = num_str
         .parse()
-        .map_err(|e| format!("invalid number '{num_str}': {e}"))?;
+        .map_err(|e| format!("无效的数字 '{num_str}': {e}"))?;
 
     if number < 0.0 {
-        return Err("size must be non-negative".to_string());
+        return Err("文件大小不能为负数".to_string());
     }
 
     let multiplier: u64 = match suffix {
@@ -71,7 +69,7 @@ pub fn parse_min_size(input: &str) -> Result<u64, String> {
         "GI" | "GIB" => 1_073_741_824,
         other => {
             return Err(format!(
-                "unknown size suffix '{other}'. Supported: B, KB, MB, GB (or KiB, MiB, GiB)"
+                "不支持的单位 '{other}'，支持: B, KB, MB, GB（或 KiB, MiB, GiB）"
             ));
         }
     };

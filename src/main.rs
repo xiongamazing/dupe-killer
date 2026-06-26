@@ -6,43 +6,39 @@ use std::process;
 
 fn main() {
     if let Err(err) = run() {
-        eprintln!("Error: {err}");
+        eprintln!("错误: {err}");
         process::exit(1);
     }
 }
 
-/// Parse CLI arguments, run the scan, and produce output.
 fn run() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let min_size = args.min_size.unwrap_or(0);
 
     if !args.path.exists() {
-        anyhow::bail!("path does not exist: {}", args.path.display());
+        anyhow::bail!("路径不存在: {}", args.path.display());
     }
     if !args.path.is_dir() {
-        anyhow::bail!("path is not a directory: {}", args.path.display());
+        anyhow::bail!("路径不是目录: {}", args.path.display());
     }
 
-    // Scan
     eprintln!(
-        "Scanning {} (min size: {} bytes)...",
+        "正在扫描 {} (最小文件大小: {} 字节)...",
         args.path.display(),
         min_size
     );
     let entries = scanner::scan(&args.path, min_size)?;
-    eprintln!("Found {} files to analyze.", entries.len());
+    eprintln!("找到 {} 个文件待分析。", entries.len());
 
     if entries.is_empty() {
-        println!("No files found matching the criteria.");
+        println!("没有找到符合条件的文件。");
         return Ok(());
     }
 
-    // Detect duplicates
-    eprintln!("Analyzing for duplicates...");
+    eprintln!("正在分析重复文件...");
     let (groups, stats) = duplicates::find_duplicates(entries)?;
 
-    // Output
     if let Some(ref script_path) = args.delete_script {
         output::generate_delete_script(&groups, script_path)?;
     }
@@ -54,11 +50,7 @@ fn run() -> anyhow::Result<()> {
     }
 
     if args.dry_run {
-        println!(
-            "{} {}",
-            "ℹ".cyan(),
-            "Dry run mode — no files were deleted.".dimmed()
-        );
+        println!("{} {}", "ℹ".cyan(), "预览模式 — 没有文件被删除。".dimmed());
     }
 
     Ok(())
