@@ -1,115 +1,103 @@
 use crate::types::{FullHash, HashBytes, PartialHash};
 use rayon::prelude::*;
 use std::fs;
-use std::io::{BufReader, Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
-const QUICK_HASH_BYTES: usize = 8192;
+const HEADER_SIZE: usize = 8192;
 
 pub fn compute_quick_hash(path: &Path, size: u64) -> anyhow::Result<PartialHash> {
-    let file = fs::File::open(path)?;
-    let mut reader = BufReader::with_capacity(QUICK_HASH_BYTES, file);
-    let mut buffer = vec![0u8; QUICK_HASH_BYTES.min(size as usize)];
-
-    reader.read_exact(&mut buffer)?;
-
-    let quick_hash = HashBytes::from_blake3(blake3::hash(&buffer));
+    let mut f = fs::File::open(path)?;
+    let len = HEADER_SIZE.min(size as usize);
+    let mut buf = vec![0u8; len];
+    f.read_exact(&mut buf)?;
 
     Ok(PartialHash {
         path: path.to_path_buf(),
         size,
-        quick_hash,
+        quick_hash: HashBytes::from_blake3(blake3::hash(&buf)),
     })
 }
 
 pub fn compute_full_hash(path: &Path, size: u64) -> anyhow::Result<FullHash> {
-    let file = fs::File::open(path)?;
-    let mut reader = BufReader::new(file);
+    let mut f = fs::File::open(path)?;
     let mut hasher = blake3::Hasher::new();
-    let mut buffer = [0u8; 65536];
+    let mut buf = vec![0u8; 65536];
 
     loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
             break;
         }
-        hasher.update(&buffer[..bytes_read]);
+        hasher.update(&buf[..n]);
     }
-
-    let hash = HashBytes::from_blake3(hasher.finalize());
 
     Ok(FullHash {
         path: path.to_path_buf(),
         size,
-        hash,
+        hash: HashBytes::from_blake3(hasher.finalize()),
     })
 }
 
 pub fn verify_identical(a: &Path, b: &Path) -> anyhow::Result<bool> {
-    let file_a = fs::File::open(a)?;
-    let file_b = fs::File::open(b)?;
-
-    let mut reader_a = BufReader::with_capacity(65536, file_a);
-    let mut reader_b = BufReader::with_capacity(65536, file_b);
-
-    let mut buf_a = [0u8; 65536];
-    let mut buf_b = [0u8; 65536];
+    let mut fa = fs::File::open(a)?;
+    let mut fb = fs::File::open(b)?;
+    let mut ba = [0u8; 65536];
+    let mut bb = [0u8; 65536];
 
     loop {
-        let n_a = reader_a.read(&mut buf_a)?;
-        let n_b = reader_b.read(&mut buf_b)?;
-
-        if n_a != n_b {
+        let na = fa.read(&mut ba)?;
+        let nb = fb.read(&mut bb)?;
+        if na != nb {
             return Ok(false);
         }
-        if n_a == 0 {
-            return Ok(true);
+        if na == 0 {
+            break;
         }
-
-        if buf_a[..n_a] != buf_b[..n_b] {
+        if ba[..na] != bb[..nb] {
             return Ok(false);
         }
     }
+    Ok(true)
 }
 
-pub fn compute_quick_hashes_parallel(entries: &[PathBuf], size: u64) -> Vec<PartialHash> {
-    entries
+pub fn compute_quick_hashes_parallel(paths: &[PathBuf], size: u64) -> Vec<PartialHash> {
+    paths
         .par_iter()
-        .filter_map(|path| match compute_quick_hash(path, size) {
-            Ok(h) => Some(h),
-            Err(e) => {
-                eprintln!("Warning: skipping {}: {e}", path.display());
-                None
-            }
+        .filter_map(|p| {
+            compute_quick_hash(p, size)
+                .map_err(|e| eprintln!("Warning: skipping {}: {e}", p.display()))
+                .ok()
         })
         .collect()
 }
 
 pub fn compute_full_hashes_parallel(paths: &[PathBuf], size: u64) -> Vec<FullHash> {
-    paths
+    let mut results = Vec::with_capacity(paths.len());
+    let hashes: Vec<_> = paths
         .par_iter()
-        .filter_map(|path| match compute_full_hash(path, size) {
+        .filter_map(|p| match compute_full_hash(p, size) {
             Ok(h) => Some(h),
             Err(e) => {
-                eprintln!("Warning: skipping full hash for {}: {e}", path.display());
+                eprintln!("Warning: skipping full hash for {}: {e}", p.display());
                 None
             }
         })
-        .collect()
+        .collect();
+    results.extend(hashes);
+    results
 }
 
 pub fn verify_group_identical(files: &[PathBuf]) -> anyhow::Result<bool> {
     if files.len() < 2 {
         return Ok(true);
     }
-
     let first = &files[0];
-    for other in &files[1..] {
-        if !verify_identical(first, other)? {
+    for f in &files[1..] {
+        if !verify_identical(first, f)? {
             return Ok(false);
         }
     }
-
     Ok(true)
 }
 

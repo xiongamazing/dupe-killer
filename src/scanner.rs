@@ -4,18 +4,17 @@ use walkdir::WalkDir;
 
 pub fn scan(dir: &Path, min_size: u64) -> anyhow::Result<Vec<FileEntry>> {
     let mut entries = Vec::new();
+    let walker = WalkDir::new(dir).follow_links(false);
 
-    for entry in WalkDir::new(dir)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| match e {
-            Ok(entry) => Some(entry),
+    for item in walker {
+        let entry = match item {
+            Ok(e) => e,
             Err(err) => {
                 eprintln!("Warning: skipping unreadable entry: {err}");
-                None
+                continue;
             }
-        })
-    {
+        };
+
         if !entry.file_type().is_file() {
             continue;
         }
@@ -32,7 +31,6 @@ pub fn scan(dir: &Path, min_size: u64) -> anyhow::Result<Vec<FileEntry>> {
         };
 
         let size = metadata.len();
-
         if size < min_size {
             continue;
         }

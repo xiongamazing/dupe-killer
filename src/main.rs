@@ -13,7 +13,6 @@ fn main() {
 
 fn run() -> anyhow::Result<()> {
     let args = Args::parse();
-
     let min_size = args.min_size.unwrap_or(0);
 
     if !args.path.exists() {
@@ -24,7 +23,7 @@ fn run() -> anyhow::Result<()> {
     }
 
     eprintln!(
-        "Scanning {} (min size: {} bytes)...",
+        "Scanning {} (min size: {})...",
         args.path.display(),
         min_size
     );

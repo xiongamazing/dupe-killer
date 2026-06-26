@@ -9,7 +9,7 @@ pub fn find_duplicates(
     let total_files = entries.len() as u64;
     let total_size: u64 = entries.iter().map(|e| e.size).sum();
 
-    // 第一层：按文件大小分组
+    // 第一层：按文件大小分组，大小唯一的直接排除
     let mut by_size: HashMap<u64, Vec<PathBuf>> = HashMap::new();
     for entry in &entries {
         by_size
@@ -17,75 +17,70 @@ pub fn find_duplicates(
             .or_default()
             .push(entry.path.clone());
     }
+    by_size.retain(|_, v| v.len() >= 2);
 
-    by_size.retain(|_, paths| paths.len() >= 2);
-
-    // 第二层：头部 8KB 快速哈希
-    let mut quick_hash_groups: Vec<(u64, Vec<PathBuf>)> = Vec::new();
-
+    // 第二层：计算头部 8KB 的快速哈希来进一步筛选
+    let mut after_quick: Vec<(u64, Vec<PathBuf>)> = Vec::new();
     for (&size, paths) in &by_size {
-        let partials = hasher::compute_quick_hashes_parallel(paths, size);
-
-        let mut by_quick: HashMap<[u8; 32], Vec<PathBuf>> = HashMap::new();
-        for ph in partials {
-            by_quick.entry(ph.quick_hash.0).or_default().push(ph.path);
+        let partial_hashes = hasher::compute_quick_hashes_parallel(paths, size);
+        let mut groups: HashMap<[u8; 32], Vec<PathBuf>> = HashMap::new();
+        for h in partial_hashes {
+            groups.entry(h.quick_hash.0).or_default().push(h.path);
         }
-
-        for (_, group) in by_quick {
-            if group.len() >= 2 {
-                quick_hash_groups.push((size, group));
+        // 只保留快速哈希也相同的组（至少2个文件）
+        for (_, files) in groups {
+            if !files.is_empty() && files.len() > 1 {
+                after_quick.push((size, files));
             }
         }
     }
 
-    // 第三层：完整文件哈希
-    let mut full_hash_groups: Vec<(u64, Vec<PathBuf>)> = Vec::new();
-
-    for (size, paths) in &quick_hash_groups {
-        let fulls = hasher::compute_full_hashes_parallel(paths, *size);
-
-        let mut by_full: HashMap<[u8; 32], Vec<PathBuf>> = HashMap::new();
-        for fh in fulls {
-            by_full.entry(fh.hash.0).or_default().push(fh.path);
+    // 第三层：完整文件哈希 — 对通过前两层筛选的文件做全量哈希
+    let mut after_full: Vec<(u64, Vec<PathBuf>)> = Vec::new();
+    for (size, paths) in &after_quick {
+        let full_hashes = hasher::compute_full_hashes_parallel(paths, *size);
+        let mut map: HashMap<[u8; 32], Vec<PathBuf>> = HashMap::new();
+        for fh in full_hashes {
+            let entry = map.entry(fh.hash.0).or_default();
+            entry.push(fh.path);
         }
-
-        for (_, group) in by_full {
-            if group.len() >= 2 {
-                full_hash_groups.push((*size, group));
+        for (_, files) in map.drain() {
+            if files.len() >= 2 {
+                after_full.push((*size, files));
             }
         }
     }
 
-    // 第四层：逐字节比对
-    let mut duplicate_groups: Vec<DuplicateGroup> = Vec::new();
-
-    for (size, paths) in &full_hash_groups {
-        if hasher::verify_group_identical(paths)? {
-            let hash = hasher::compute_full_hash(&paths[0], *size)
-                .map(|fh| fh.hash)
-                .unwrap_or_else(|_| crate::types::HashBytes::from_blake3(blake3::hash(&[])));
-
-            duplicate_groups.push(DuplicateGroup {
-                size: *size,
-                hash,
-                files: paths.clone(),
-            });
+    // 第四层：逐字节比对，防止哈希碰撞（概率极低但做最终确认）
+    let mut result: Vec<DuplicateGroup> = Vec::new();
+    for (size, files) in &after_full {
+        if !hasher::verify_group_identical(files)? {
+            continue;
         }
+        let rep_hash = hasher::compute_full_hash(&files[0], *size)
+            .map(|fh| fh.hash)
+            .unwrap_or_else(|_| crate::types::HashBytes::from_blake3(blake3::hash(b"")));
+        result.push(DuplicateGroup {
+            size: *size,
+            hash: rep_hash,
+            files: files.clone(),
+        });
     }
 
-    let mut wasted_bytes: u64 = 0;
-    for group in &duplicate_groups {
-        wasted_bytes += group.size * (group.files.len() as u64 - 1);
-    }
+    // 统计可节省的空间
+    let wasted_bytes = result
+        .iter()
+        .map(|g| g.size * (g.files.len() as u64 - 1))
+        .sum();
 
     let stats = ScanStats {
         total_files,
         total_size,
-        duplicate_groups: duplicate_groups.len(),
+        duplicate_groups: result.len(),
         wasted_bytes,
     };
 
-    Ok((duplicate_groups, stats))
+    Ok((result, stats))
 }
 
 #[cfg(test)]

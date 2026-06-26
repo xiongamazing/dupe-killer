@@ -40,14 +40,17 @@ pub struct Args {
 pub fn parse_min_size(input: &str) -> Result<u64, String> {
     let input = input.trim().to_uppercase();
 
-    let (num_str, suffix) = {
-        let idx = input
-            .find(|c: char| !c.is_ascii_digit() && c != '.')
-            .unwrap_or(input.len());
-        let num = &input[..idx];
-        let suf = input[idx..].trim();
-        (num, suf)
-    };
+    // 找到数字和单位的分界点
+    let mut split_at = input.len();
+    for (i, ch) in input.char_indices() {
+        if !ch.is_ascii_digit() && ch != '.' {
+            split_at = i;
+            break;
+        }
+    }
+
+    let num_str = &input[..split_at];
+    let suffix = input[split_at..].trim();
 
     let number: f64 = num_str
         .parse()
