@@ -198,11 +198,13 @@ pub fn generate_delete_script(groups: &[DuplicateGroup], script_path: &Path) -> 
             groups.iter().map(|g| g.files.len() as u64 - 1).sum::<u64>()
         ));
         script.push('\n');
+        script.push_str("Remove-Item -LiteralPath $PSCommandPath -Force\n");
     } else {
         script.push_str(&format!(
             "echo \"Done. Deleted {} files.\"\n",
             groups.iter().map(|g| g.files.len() as u64 - 1).sum::<u64>()
         ));
+        script.push_str("rm -f \"$0\"\n");
     }
 
     let mut file = fs::File::create(script_path)?;
