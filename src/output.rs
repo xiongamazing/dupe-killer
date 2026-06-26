@@ -206,6 +206,11 @@ pub fn generate_delete_script(groups: &[DuplicateGroup], script_path: &Path) -> 
     }
 
     let mut file = fs::File::create(script_path)?;
+
+    // Write UTF-8 BOM so PowerShell handles Chinese paths correctly
+    if is_windows {
+        file.write_all(&[0xEF, 0xBB, 0xBF])?;
+    }
     file.write_all(script.as_bytes())?;
 
     // On Unix, make it executable
