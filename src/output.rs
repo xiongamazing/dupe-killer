@@ -8,12 +8,10 @@ fn format_size(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes as f64;
     let mut unit_idx = 0;
-
     while size >= 1000.0 && unit_idx < UNITS.len() - 1 {
         size /= 1000.0;
         unit_idx += 1;
     }
-
     if unit_idx == 0 {
         format!("{bytes} B")
     } else if size < 10.0 {
@@ -36,7 +34,6 @@ pub fn print_table(groups: &[DuplicateGroup], stats: &ScanStats) {
 
     println!("\n{}", "=== Duplicate Files Report ===".cyan().bold());
     println!();
-
     for (i, group) in groups.iter().enumerate() {
         let size_str = format_size(group.size);
         let waste = format_size(group.size * (group.files.len() as u64 - 1));
@@ -50,7 +47,6 @@ pub fn print_table(groups: &[DuplicateGroup], stats: &ScanStats) {
             "waste".red().bold(),
             waste.red().bold(),
         );
-
         for (j, file) in group.files.iter().enumerate() {
             if j == 0 {
                 println!(
@@ -68,7 +64,6 @@ pub fn print_table(groups: &[DuplicateGroup], stats: &ScanStats) {
         }
         println!();
     }
-
     print_summary(stats);
 }
 
@@ -108,12 +103,10 @@ pub fn print_json(groups: &[DuplicateGroup], stats: &ScanStats) -> anyhow::Resul
         scan_stats: &'a ScanStats,
         duplicate_groups: &'a [DuplicateGroup],
     }
-
     let output = JsonOutput {
         scan_stats: stats,
         duplicate_groups: groups,
     };
-
     let json = serde_json::to_string_pretty(&output)?;
     println!("{json}");
     Ok(())
@@ -123,7 +116,6 @@ pub fn generate_delete_script(groups: &[DuplicateGroup], script_path: &Path) -> 
     if groups.is_empty() {
         println!("No duplicates found — empty script will be generated.");
     }
-
     let is_windows = cfg!(target_os = "windows");
 
     let mut script = String::new();
@@ -200,9 +192,7 @@ pub fn generate_delete_script(groups: &[DuplicateGroup], script_path: &Path) -> 
         ));
         script.push_str("rm -f \"$0\"\n");
     }
-
     let mut file = fs::File::create(script_path)?;
-
     if is_windows {
         file.write_all(&[0xEF, 0xBB, 0xBF])?;
     }
@@ -246,19 +236,16 @@ mod tests {
         assert_eq!(format_size(0), "0 B");
         assert_eq!(format_size(500), "500 B");
     }
-
     #[test]
     fn test_format_size_kb() {
         assert_eq!(format_size(1_500), "1.5 KB");
         assert_eq!(format_size(50_000), "50 KB");
     }
-
     #[test]
     fn test_format_size_mb() {
         assert_eq!(format_size(1_500_000), "1.5 MB");
         assert_eq!(format_size(75_000_000), "75 MB");
     }
-
     #[test]
     fn test_format_size_gb() {
         assert_eq!(format_size(1_500_000_000), "1.5 GB");

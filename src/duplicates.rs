@@ -8,7 +8,6 @@ pub fn find_duplicates(
 ) -> anyhow::Result<(Vec<DuplicateGroup>, ScanStats)> {
     let total_files = entries.len() as u64;
     let total_size: u64 = entries.iter().map(|e| e.size).sum();
-
     // 第一层：按文件大小分组，大小唯一的直接排除
     let mut by_size: HashMap<u64, Vec<PathBuf>> = HashMap::new();
     for entry in &entries {
@@ -18,7 +17,6 @@ pub fn find_duplicates(
             .push(entry.path.clone());
     }
     by_size.retain(|_, v| v.len() >= 2);
-
     // 第二层：计算头部 8KB 的快速哈希来进一步筛选
     let mut after_quick: Vec<(u64, Vec<PathBuf>)> = Vec::new();
     for (&size, paths) in &by_size {
@@ -34,7 +32,6 @@ pub fn find_duplicates(
             }
         }
     }
-
     // 第三层：完整文件哈希 — 对通过前两层筛选的文件做全量哈希
     let mut after_full: Vec<(u64, Vec<PathBuf>)> = Vec::new();
     for (size, paths) in &after_quick {
@@ -50,7 +47,6 @@ pub fn find_duplicates(
             }
         }
     }
-
     // 第四层：逐字节比对，防止哈希碰撞（概率极低但做最终确认）
     let mut result: Vec<DuplicateGroup> = Vec::new();
     for (size, files) in &after_full {
@@ -66,7 +62,6 @@ pub fn find_duplicates(
             files: files.clone(),
         });
     }
-
     // 统计可节省的空间
     let wasted_bytes = result
         .iter()
@@ -100,7 +95,6 @@ mod tests {
             modified: SystemTime::now(),
         }
     }
-
     #[test]
     fn test_duplicate_grouping() {
         let dir = tempfile::tempdir().expect("failed to create temp dir");

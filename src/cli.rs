@@ -12,19 +12,15 @@ pub struct Args {
     /// 要扫描的目录路径
     #[arg(value_name = "PATH")]
     pub path: PathBuf,
-
     /// 最小文件大小，如 1MB、500KB、100B
     #[arg(long, value_name = "SIZE", value_parser = parse_min_size)]
     pub min_size: Option<u64>,
-
     /// 以 JSON 格式输出
     #[arg(long)]
     pub json: bool,
-
     /// 预览模式，不实际删除
     #[arg(long)]
     pub dry_run: bool,
-
     /// 生成删除脚本（Windows 下为 .ps1，Unix 下为 .sh）
     #[arg(long, value_name = "FILE")]
     pub delete_script: Option<PathBuf>,
@@ -39,7 +35,6 @@ pub struct Args {
 /// ```
 pub fn parse_min_size(input: &str) -> Result<u64, String> {
     let input = input.trim().to_uppercase();
-
     // 找到数字和单位的分界点
     let mut split_at = input.len();
     for (i, ch) in input.char_indices() {
@@ -48,10 +43,8 @@ pub fn parse_min_size(input: &str) -> Result<u64, String> {
             break;
         }
     }
-
     let num_str = &input[..split_at];
     let suffix = input[split_at..].trim();
-
     let number: f64 = num_str
         .parse()
         .map_err(|e| format!("invalid number '{num_str}': {e}"))?;
@@ -59,7 +52,6 @@ pub fn parse_min_size(input: &str) -> Result<u64, String> {
     if number < 0.0 {
         return Err("size must be non-negative".to_string());
     }
-
     let multiplier: u64 = match suffix {
         "" | "B" => 1,
         "K" | "KB" => 1_000,
