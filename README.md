@@ -1,16 +1,16 @@
 # dupe-killer
 
-A fast command-line duplicate file finder written in Rust, using a **four-layer progressive hashing algorithm** to identify duplicates with minimal I/O.
+基于 Rust 的命令行重复文件查找器，采用**四层渐进式哈希算法**，在最小化磁盘 I/O 的同时精准识别重复文件。
 
-## Features
+## 功能特点
 
-- **Four-layer dedup**: size → quick hash (8 KB) → full Blake3 hash → byte-by-byte verify
-- **Parallel hashing**: uses `rayon` for multi-core file hashing
-- **Colored terminal output**: clean table with groups, sizes, and wasted space
-- **JSON export**: structured output for scripting
-- **Safe deletion**: generates reviewable scripts (`.ps1` on Windows, `.sh` on Unix)
+- **四层查重算法**：文件大小 → 头部 8KB 快速哈希 → 完整 Blake3 哈希 → 逐字节比对
+- **并行计算**：使用 `rayon` 多核并行计算文件哈希
+- **彩色终端输出**：简洁的表格展示重复组、文件大小和可节省空间
+- **JSON 导出**：支持结构化 JSON 输出，方便脚本处理
+- **安全删除**：生成删除脚本（Windows 生成 `.ps1`，Unix 生成 `.sh`），人工审核后再执行
 
-## Installation
+## 安装
 
 ```bash
 git clone https://github.com/xiongamazing/dupe-killer.git
@@ -18,47 +18,47 @@ cd dupe-killer
 cargo build --release
 ```
 
-The binary will be at `target/release/dupe-killer` (or `dupe-killer.exe` on Windows).
+编译后的可执行文件位于 `target/release/dupe-killer`（Windows 下为 `dupe-killer.exe`）。
 
-## Usage
+## 使用方法
 
 ```bash
-# Basic scan
+# 基本扫描
 dupe-killer /path/to/directory
 
-# Only files larger than 1 MB
+# 只扫描大于 1MB 的文件
 dupe-killer /path/to/directory --min-size 1MB
 
-# JSON output
+# JSON 格式输出
 dupe-killer /path/to/directory --json
 
-# Preview without deleting
+# 预览模式，不执行删除
 dupe-killer /path/to/directory --dry-run
 
-# Generate deletion script
+# 生成删除脚本，审核后手动执行
 dupe-killer /path/to/directory --delete-script cleanup.sh
 ```
 
-### Options
+### 参数说明
 
-| Option | Description |
-|--------|-------------|
-| `<PATH>` | Directory to scan (required) |
-| `--min-size <SIZE>` | Minimum file size, e.g. `1MB`, `500KB`, `100B` |
-| `--json` | Output results as JSON |
-| `--dry-run` | Show results without deleting |
-| `--delete-script <FILE>` | Generate a deletion script for review |
+| 参数 | 说明 |
+|------|------|
+| `<PATH>` | 要扫描的目录路径（必填） |
+| `--min-size <SIZE>` | 最小文件大小，如 `1MB`、`500KB`、`100B` |
+| `--json` | 以 JSON 格式输出结果 |
+| `--dry-run` | 只预览结果，不执行删除 |
+| `--delete-script <FILE>` | 生成删除脚本供人工审核 |
 
-## How It Works
+## 算法原理
 
 ```
-Layer 1: Group by file size        →  discard unique-size files
-Layer 2: Quick hash (first 8 KB)   →  discard files with different beginnings
-Layer 3: Full Blake3 hash          →  identify probable duplicates
-Layer 4: Byte-by-byte verification →  eliminate hash collisions
+第一层：按文件大小分组        →  过滤掉大小唯一的文件
+第二层：计算头部 8KB 快速哈希  →  过滤掉开头不同的文件
+第三层：计算完整 Blake3 哈希   →  识别疑似重复文件
+第四层：逐字节比对验证         →  消除哈希碰撞的可能
 ```
 
-## Example Output
+## 示例输出
 
 ```
 === Duplicate Files Report ===
@@ -77,24 +77,24 @@ Scan Summary:
   (6.5% of total data is duplicate)
 ```
 
-## Project Structure
+## 项目结构
 
 ```
 src/
-├── main.rs        # Entry point
-├── lib.rs         # Module declarations
-├── cli.rs         # CLI argument parsing (clap)
-├── scanner.rs     # Recursive directory scanning (walkdir)
-├── hasher.rs      # Blake3 hashing with rayon parallelism
-├── duplicates.rs  # Four-layer dedup algorithm
-├── output.rs      # Table / JSON / delete script output
-└── types.rs       # Shared data structures
+├── main.rs        # 程序入口
+├── lib.rs         # 模块声明
+├── cli.rs         # 命令行参数解析 (clap)
+├── scanner.rs     # 递归目录扫描 (walkdir)
+├── hasher.rs      # Blake3 哈希计算 (rayon 并行)
+├── duplicates.rs  # 四层渐进式查重算法
+├── output.rs      # 终端表格 / JSON / 删除脚本输出
+└── types.rs       # 共享数据结构
 ```
 
-## Requirements
+## 环境要求
 
 - Rust 1.80+
 
-## License
+## 许可证
 
 MIT
