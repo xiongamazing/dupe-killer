@@ -4,7 +4,6 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-/// 把字节数格式化为人类可读的字符串
 fn format_size(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes as f64;
@@ -24,7 +23,6 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// 彩色终端表格输出
 pub fn print_table(groups: &[DuplicateGroup], stats: &ScanStats) {
     if groups.is_empty() {
         println!("\n{}", "No duplicate files found.".green().bold());
@@ -104,7 +102,6 @@ fn print_summary(stats: &ScanStats) {
     println!();
 }
 
-/// JSON 格式输出
 pub fn print_json(groups: &[DuplicateGroup], stats: &ScanStats) -> anyhow::Result<()> {
     #[derive(serde::Serialize)]
     struct JsonOutput<'a> {
@@ -122,7 +119,6 @@ pub fn print_json(groups: &[DuplicateGroup], stats: &ScanStats) -> anyhow::Resul
     Ok(())
 }
 
-/// 生成删除脚本
 pub fn generate_delete_script(groups: &[DuplicateGroup], script_path: &Path) -> anyhow::Result<()> {
     if groups.is_empty() {
         println!("No duplicates found — empty script will be generated.");
@@ -207,13 +203,11 @@ pub fn generate_delete_script(groups: &[DuplicateGroup], script_path: &Path) -> 
 
     let mut file = fs::File::create(script_path)?;
 
-    // 写入 UTF-8 BOM，让 PowerShell 正确识别中文路径
     if is_windows {
         file.write_all(&[0xEF, 0xBB, 0xBF])?;
     }
     file.write_all(script.as_bytes())?;
 
-    // Unix 下加可执行权限
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -222,15 +216,22 @@ pub fn generate_delete_script(groups: &[DuplicateGroup], script_path: &Path) -> 
         fs::set_permissions(script_path, perms)?;
     }
 
-    println!("{} 删除脚本已写入 {}", "✓".green(), script_path.display());
-    println!("  {} 请仔细审核脚本后再执行。", "⚠".yellow());
+    println!(
+        "{} Deletion script written to {}",
+        "✓".green(),
+        script_path.display()
+    );
+    println!(
+        "  {} Review the script carefully before executing.",
+        "⚠".yellow()
+    );
     if is_windows {
         println!(
-            "  执行: powershell -ExecutionPolicy Bypass -File {}",
+            "  Run: powershell -ExecutionPolicy Bypass -File {}",
             script_path.display()
         );
     } else {
-        println!("  执行: bash {}", script_path.display());
+        println!("  Run: bash {}", script_path.display());
     }
 
     Ok(())

@@ -3,15 +3,13 @@ use crate::types::{DuplicateGroup, FileEntry, ScanStats};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// 四层渐进式重复检测算法：
-/// 1. 按文件大小分组 → 2. 快速哈希 → 3. 完整哈希 → 4. 逐字节比对
 pub fn find_duplicates(
     entries: Vec<FileEntry>,
 ) -> anyhow::Result<(Vec<DuplicateGroup>, ScanStats)> {
     let total_files = entries.len() as u64;
     let total_size: u64 = entries.iter().map(|e| e.size).sum();
 
-    // 第一层：按文件大小分组，大小唯一的直接排除
+    // 第一层：按文件大小分组
     let mut by_size: HashMap<u64, Vec<PathBuf>> = HashMap::new();
     for entry in &entries {
         by_size
@@ -22,7 +20,7 @@ pub fn find_duplicates(
 
     by_size.retain(|_, paths| paths.len() >= 2);
 
-    // 第二层：计算头部 8KB 的快速哈希
+    // 第二层：头部 8KB 快速哈希
     let mut quick_hash_groups: Vec<(u64, Vec<PathBuf>)> = Vec::new();
 
     for (&size, paths) in &by_size {
@@ -58,7 +56,7 @@ pub fn find_duplicates(
         }
     }
 
-    // 第四层：逐字节比对，消除哈希碰撞的可能
+    // 第四层：逐字节比对
     let mut duplicate_groups: Vec<DuplicateGroup> = Vec::new();
 
     for (size, paths) in &full_hash_groups {

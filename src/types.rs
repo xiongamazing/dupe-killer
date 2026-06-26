@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-/// 扫描到的文件信息
 #[derive(Debug, Clone)]
 pub struct FileEntry {
     pub path: PathBuf,
@@ -10,7 +9,6 @@ pub struct FileEntry {
     pub modified: SystemTime,
 }
 
-/// 文件头部 8KB 的快速哈希结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartialHash {
     pub path: PathBuf,
@@ -18,7 +16,6 @@ pub struct PartialHash {
     pub quick_hash: HashBytes,
 }
 
-/// 完整文件的哈希结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullHash {
     pub path: PathBuf,
@@ -26,7 +23,6 @@ pub struct FullHash {
     pub hash: HashBytes,
 }
 
-/// 一组重复文件
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateGroup {
     pub size: u64,
@@ -34,7 +30,6 @@ pub struct DuplicateGroup {
     pub files: Vec<PathBuf>,
 }
 
-/// 扫描统计
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanStats {
     pub total_files: u64,
@@ -43,7 +38,6 @@ pub struct ScanStats {
     pub wasted_bytes: u64,
 }
 
-/// 32 字节哈希值，包装了 Blake3 的 digest
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HashBytes(pub [u8; 32]);
 

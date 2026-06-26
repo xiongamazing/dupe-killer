@@ -2,7 +2,6 @@ use crate::types::FileEntry;
 use std::path::Path;
 use walkdir::WalkDir;
 
-/// 递归扫描目录，收集所有大于 min_size 的文件信息
 pub fn scan(dir: &Path, min_size: u64) -> anyhow::Result<Vec<FileEntry>> {
     let mut entries = Vec::new();
 
@@ -12,7 +11,7 @@ pub fn scan(dir: &Path, min_size: u64) -> anyhow::Result<Vec<FileEntry>> {
         .filter_map(|e| match e {
             Ok(entry) => Some(entry),
             Err(err) => {
-                eprintln!("警告: 跳过无法读取的条目: {err}");
+                eprintln!("Warning: skipping unreadable entry: {err}");
                 None
             }
         })
@@ -24,7 +23,10 @@ pub fn scan(dir: &Path, min_size: u64) -> anyhow::Result<Vec<FileEntry>> {
         let metadata = match entry.metadata() {
             Ok(m) => m,
             Err(e) => {
-                eprintln!("警告: 无法读取元数据 {}: {e}", entry.path().display());
+                eprintln!(
+                    "Warning: cannot read metadata for {}: {e}",
+                    entry.path().display()
+                );
                 continue;
             }
         };
@@ -38,7 +40,10 @@ pub fn scan(dir: &Path, min_size: u64) -> anyhow::Result<Vec<FileEntry>> {
         let modified = match metadata.modified() {
             Ok(t) => t,
             Err(e) => {
-                eprintln!("警告: 无法读取修改时间 {}: {e}", entry.path().display());
+                eprintln!(
+                    "Warning: cannot read modification time for {}: {e}",
+                    entry.path().display()
+                );
                 continue;
             }
         };
@@ -51,7 +56,7 @@ pub fn scan(dir: &Path, min_size: u64) -> anyhow::Result<Vec<FileEntry>> {
     }
 
     if entries.is_empty() && min_size == 0 {
-        eprintln!("提示: {} 中没有找到文件", dir.display());
+        eprintln!("Note: no files found in {}", dir.display());
     }
 
     Ok(entries)

@@ -6,7 +6,7 @@ use std::process;
 
 fn main() {
     if let Err(err) = run() {
-        eprintln!("错误: {err}");
+        eprintln!("Error: {err}");
         process::exit(1);
     }
 }
@@ -17,26 +17,26 @@ fn run() -> anyhow::Result<()> {
     let min_size = args.min_size.unwrap_or(0);
 
     if !args.path.exists() {
-        anyhow::bail!("路径不存在: {}", args.path.display());
+        anyhow::bail!("path does not exist: {}", args.path.display());
     }
     if !args.path.is_dir() {
-        anyhow::bail!("路径不是目录: {}", args.path.display());
+        anyhow::bail!("path is not a directory: {}", args.path.display());
     }
 
     eprintln!(
-        "正在扫描 {} (最小文件大小: {} 字节)...",
+        "Scanning {} (min size: {} bytes)...",
         args.path.display(),
         min_size
     );
     let entries = scanner::scan(&args.path, min_size)?;
-    eprintln!("找到 {} 个文件待分析。", entries.len());
+    eprintln!("Found {} files to analyze.", entries.len());
 
     if entries.is_empty() {
-        println!("没有找到符合条件的文件。");
+        println!("No files found matching the criteria.");
         return Ok(());
     }
 
-    eprintln!("正在分析重复文件...");
+    eprintln!("Analyzing for duplicates...");
     let (groups, stats) = duplicates::find_duplicates(entries)?;
 
     if let Some(ref script_path) = args.delete_script {
@@ -50,7 +50,11 @@ fn run() -> anyhow::Result<()> {
     }
 
     if args.dry_run {
-        println!("{} {}", "ℹ".cyan(), "预览模式 — 没有文件被删除。".dimmed());
+        println!(
+            "{} {}",
+            "ℹ".cyan(),
+            "Dry run mode — no files were deleted.".dimmed()
+        );
     }
 
     Ok(())

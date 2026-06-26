@@ -1,7 +1,6 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-/// 重复文件查找器
 #[derive(Parser, Debug)]
 #[command(
     name = "dupe-killer",
@@ -41,7 +40,6 @@ pub struct Args {
 pub fn parse_min_size(input: &str) -> Result<u64, String> {
     let input = input.trim().to_uppercase();
 
-    // 把数字部分和单位部分拆开
     let (num_str, suffix) = {
         let idx = input
             .find(|c: char| !c.is_ascii_digit() && c != '.')
@@ -53,10 +51,10 @@ pub fn parse_min_size(input: &str) -> Result<u64, String> {
 
     let number: f64 = num_str
         .parse()
-        .map_err(|e| format!("无效的数字 '{num_str}': {e}"))?;
+        .map_err(|e| format!("invalid number '{num_str}': {e}"))?;
 
     if number < 0.0 {
-        return Err("文件大小不能为负数".to_string());
+        return Err("size must be non-negative".to_string());
     }
 
     let multiplier: u64 = match suffix {
@@ -69,7 +67,7 @@ pub fn parse_min_size(input: &str) -> Result<u64, String> {
         "GI" | "GIB" => 1_073_741_824,
         other => {
             return Err(format!(
-                "不支持的单位 '{other}'，支持: B, KB, MB, GB（或 KiB, MiB, GiB）"
+                "unknown size suffix '{other}'. Supported: B, KB, MB, GB (or KiB, MiB, GiB)"
             ));
         }
     };
